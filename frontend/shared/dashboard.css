@@ -1,0 +1,124 @@
+/* ============================================================
+   SmartTechBuddy – Shared Dashboard Styles
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: #f4f6f4;
+  color: #222;
+  min-height: 100vh;
+}
+
+/* ── Navigation ──────────────────────────────────────────── */
+#navbar {
+  display: flex; align-items: center; justify-content: space-between;
+  background: #1a3a1a; color: #fff;
+  padding: 0 24px; height: 56px;
+  position: sticky; top: 0; z-index: 100;
+  box-shadow: 0 2px 8px rgba(0,0,0,.3);
+}
+.nav-brand { font-size: 18px; font-weight: 700; letter-spacing: -.3px; }
+.nav-center { font-size: 14px; color: #a0c8a0; }
+.nav-right   { display: flex; align-items: center; gap: 14px; }
+.nav-user    { font-size: 13px; display: flex; align-items: center; gap: 8px; }
+.nav-role-badge {
+  background: #2d6a2d; border-radius: 999px;
+  padding: 2px 10px; font-size: 11px; font-weight: 700; text-transform: uppercase;
+}
+.nav-logout {
+  background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.25);
+  color: #fff; border-radius: 6px; padding: 6px 14px;
+  font-size: 13px; cursor: pointer; transition: background .15s;
+}
+.nav-logout:hover { background: rgba(255,255,255,.22); }
+
+/* ── Layout ──────────────────────────────────────────────── */
+.page-header {
+  background: #fff; border-bottom: 1px solid #e0e8e0;
+  padding: 20px 28px;
+}
+.page-header h1 { font-size: 22px; color: #1a3a1a; }
+.page-header p  { font-size: 13px; color: #777; margin-top: 4px; }
+
+main { padding: 24px 28px; max-width: 1280px; margin: 0 auto; }
+
+/* ── Stat Cards ──────────────────────────────────────────── */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px; margin-bottom: 28px;
+}
+.stat-card {
+  background: #fff; border-radius: 12px;
+  padding: 20px 22px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.07);
+  border-left: 4px solid #2d6a2d;
+}
+.stat-card.warn  { border-left-color: #d97706; }
+.stat-card.alert { border-left-color: #dc2626; }
+.stat-card.info  { border-left-color: #0369a1; }
+.stat-label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: .4px; }
+.stat-value { font-size: 32px; font-weight: 700; color: #1a3a1a; margin-top: 6px; line-height: 1; }
+.stat-sub   { font-size: 12px; color: #999; margin-top: 6px; }
+
+/* ── Tables ──────────────────────────────────────────────── */
+.table-card {
+  background: #fff; border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.07);
+  overflow: hidden; margin-bottom: 24px;
+}
+.table-card-header {
+  padding: 16px 20px; border-bottom: 1px solid #eee;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.table-card-header h2 { font-size: 15px; color: #1a3a1a; }
+table { width: 100%; border-collapse: collapse; }
+th {
+  text-align: left; padding: 10px 16px;
+  font-size: 12px; font-weight: 700; color: #777;
+  text-transform: uppercase; letter-spacing: .4px;
+  background: #f8faf8; border-bottom: 1px solid #eee;
+}
+td { padding: 12px 16px; font-size: 14px; border-bottom: 1px solid #f0f0f0; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: #fafff9; }
+
+/* ── Badges ──────────────────────────────────────────────── */
+.badge {
+  display: inline-block; border-radius: 999px;
+  font-size: 11px; font-weight: 700; padding: 2px 10px; text-transform: uppercase;
+}
+.badge-green  { background: #d1fae5; color: #065f46; }
+.badge-yellow { background: #fef3c7; color: #92400e; }
+.badge-red    { background: #fee2e2; color: #991b1b; }
+.badge-blue   { background: #dbeafe; color: #1e40af; }
+.badge-purple { background: #ede9fe; color: #5b21b6; }
+.badge-gray   { background: #f3f4f6; color: #374151; }
+
+/* ── Buttons ──────────────────────────────────────────────── */
+.btn {
+  padding: 8px 16px; border: none; border-radius: 7px;
+  font-size: 13px; font-weight: 600; cursor: pointer; transition: opacity .15s;
+}
+.btn:hover { opacity: .85; }
+.btn-primary { background: #2d6a2d; color: #fff; }
+.btn-danger  { background: #dc2626; color: #fff; }
+.btn-ghost   { background: #f3f4f6; color: #374151; }
+
+/* ── Loading / Error ──────────────────────────────────────── */
+.loading-spinner {
+  text-align: center; padding: 48px;
+  font-size: 14px; color: #888;
+}
+.alert-box {
+  background: #fff0f0; border: 1px solid #ffcccc; color: #cc0000;
+  padding: 12px 16px; border-radius: 8px; margin-bottom: 16px;
+}
+
+/* ── Role-specific accent colours ──────────────────────────── */
+body.role-admin       #navbar { background: #1a3a1a; }
+body.role-warehouse   #navbar { background: #7c3a00; }
+body.role-field-agent #navbar { background: #0c3a5f; }
+body.role-supervisor  #navbar { background: #3b1a6a; }
+body.role-farmer      #navbar { background: #064e3b; }

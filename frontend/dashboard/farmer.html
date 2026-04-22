@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Farmer Portal</title>
+  <link rel="stylesheet" href="../shared/dashboard.css" />
+</head>
+<body class="role-farmer">
+<nav id="navbar"></nav>
+<div class="page-header">
+  <h1>My Farm Dashboard</h1>
+  <p>Track your input orders and live delivery status</p>
+</div>
+<main>
+  <div class="stat-grid" id="statsGrid">
+    <div class="loading-spinner">Loading…</div>
+  </div>
+
+  <div class="table-card">
+    <div class="table-card-header"><h2>My Orders</h2></div>
+    <table id="ordersTable">
+      <thead><tr><th>Order ID</th><th>Items</th><th>Amount</th><th>Status</th><th>ETA</th></tr></thead>
+      <tbody><tr><td colspan="5" class="loading-spinner">Loading…</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="table-card">
+    <div class="table-card-header"><h2>Active Deliveries</h2></div>
+    <table id="deliveriesTable">
+      <thead><tr><th>Delivery ID</th><th>Status</th><th>Agent</th><th>Contact</th><th>ETA</th></tr></thead>
+      <tbody><tr><td colspan="5" class="loading-spinner">Loading…</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="table-card">
+    <div class="table-card-header"><h2>What inputs are supported?</h2></div>
+    <div style="padding:16px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px">
+        <div style="background:#f0f8f0;border-radius:10px;padding:14px;text-align:center">
+          <div style="font-size:28px">&#127806;</div>
+          <div style="font-weight:700;margin-top:6px">Seeds</div>
+          <div style="font-size:12px;color:#666;margin-top:4px">Certified seed varieties</div>
+        </div>
+        <div style="background:#f0f8f0;border-radius:10px;padding:14px;text-align:center">
+          <div style="font-size:28px">&#129531;</div>
+          <div style="font-weight:700;margin-top:6px">Basal Fertilizer</div>
+          <div style="font-size:12px;color:#666;margin-top:4px">Base NPK application</div>
+        </div>
+        <div style="background:#f0f8f0;border-radius:10px;padding:14px;text-align:center">
+          <div style="font-size:28px">&#128167;</div>
+          <div style="font-weight:700;margin-top:6px">Top Dressing</div>
+          <div style="font-size:12px;color:#666;margin-top:4px">Secondary fertilizer</div>
+        </div>
+        <div style="background:#f0f8f0;border-radius:10px;padding:14px;text-align:center">
+          <div style="font-size:28px">&#128663;</div>
+          <div style="font-weight:700;margin-top:6px">Mechanization</div>
+          <div style="font-size:12px;color:#666;margin-top:4px">Farm equipment &amp; tools</div>
+        </div>
+        <div style="background:#f0f8f0;border-radius:10px;padding:14px;text-align:center">
+          <div style="font-size:28px">&#9879;</div>
+          <div style="font-weight:700;margin-top:6px">Chemicals</div>
+          <div style="font-size:12px;color:#666;margin-top:4px">Pesticides &amp; herbicides</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script type="module">
+import { requireAuth, renderNav, apiFetch } from '../shared/auth.js';
+
+const user = requireAuth('admin', 'farmer');
+if (user) {
+  renderNav(user);
+  loadStatus();
+}
+
+async function loadStatus() {
+  const res = await apiFetch('/dashboard/farmer/status');
+  if (!res) return;
+  const d = await res.json();
+
+  document.getElementById('statsGrid').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Total Orders</div><div class="stat-value">${d.orders.length}</div></div>
+    <div class="stat-card info"><div class="stat-label">Active Deliveries</div><div class="stat-value">${d.deliveries.length}</div></div>
+    <div class="stat-card"><div class="stat-label">Farmer</div><div class="stat-value" style="font-size:18px">${d.farmer_name}</div></div>
+  `;
+
+  const STATUS_BADGE = { dispatched:'badge-blue', delivered:'badge-green', pending:'badge-gray', in_transit:'badge-yellow' };
+  document.querySelector('#ordersTable tbody').innerHTML = d.orders.map(o => `
+    <tr>
+      <td><strong>${o.order_id}</strong></td>
+      <td style="font-size:12px">${o.items.join(' · ')}</td>
+      <td>GH₵${o.total_amount?.toLocaleString()}</td>
+      <td><span class="badge ${STATUS_BADGE[o.status]||'badge-gray'}">${o.status}</span></td>
+      <td style="font-size:12px">${new Date(o.delivery_eta).toLocaleDateString()}</td>
+    </tr>`).join('');
+
+  document.querySelector('#deliveriesTable tbody').innerHTML = d.deliveries.map(del => `
+    <tr>
+      <td><strong>${del.delivery_id}</strong></td>
+      <td><span class="badge ${STATUS_BADGE[del.status]||'badge-gray'}">${del.status.replace('_',' ')}</span></td>
+      <td>${del.agent_name}</td>
+      <td style="font-size:12px">${del.agent_phone}</td>
+      <td>${del.eta}</td>
+    </tr>`).join('');
+}
+</script>
+</body>
+</html>

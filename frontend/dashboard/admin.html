@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Dashboard</title>
+  <link rel="stylesheet" href="../shared/dashboard.css" />
+</head>
+<body class="role-admin">
+<nav id="navbar"></nav>
+<div class="page-header">
+  <h1>System Administration</h1>
+  <p>Full system overview — users, deliveries, risk alerts</p>
+</div>
+<main>
+  <div class="stat-grid" id="statsGrid">
+    <div class="loading-spinner">Loading stats…</div>
+  </div>
+
+  <div class="table-card">
+    <div class="table-card-header">
+      <h2>All Users</h2>
+      <button class="btn btn-primary" onclick="loadUsers()">Refresh</button>
+    </div>
+    <table id="usersTable">
+      <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Actions</th></tr></thead>
+      <tbody><tr><td colspan="4" class="loading-spinner">Loading…</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="table-card">
+    <div class="table-card-header">
+      <h2>Navigation</h2>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:12px;padding:16px">
+      <a href="analytics.html" class="btn btn-primary">📊 CEO Analytics Dashboard</a>
+      <a href="inventory.html" class="btn btn-primary">📦 Inventory Sync</a>
+      <a href="warehouse.html" class="btn btn-primary">🏭 Warehouse Ops</a>
+      <a href="supervisor.html" class="btn btn-primary">🔍 Risk Review</a>
+      <a href="driver_map.html?route_id=ROUTE-001" class="btn btn-primary">🗺️ Driver Map</a>
+      <a href="http://localhost:5000/api/v1/openapi.json" target="_blank" class="btn btn-ghost">OpenAPI Spec ↗</a>
+    </div>
+  </div>
+
+  <div class="table-card">
+    <div class="table-card-header">
+      <h2>API Endpoints</h2>
+      <a href="http://localhost:5000/api/v1/openapi.json" target="_blank" class="btn btn-ghost">OpenAPI Spec ↗</a>
+    </div>
+    <table>
+      <thead><tr><th>Method</th><th>Endpoint</th><th>Access</th></tr></thead>
+      <tbody id="endpointsTable"></tbody>
+    </table>
+  </div>
+</main>
+
+<script type="module">
+import { requireAuth, renderNav, apiFetch, logout } from '../shared/auth.js';
+
+const user = requireAuth('admin');
+if (user) {
+  document.body.classList.add('role-admin');
+  renderNav(user);
+  loadStats();
+  loadUsers();
+  renderEndpoints();
+}
+
+async function loadStats() {
+  const res = await apiFetch('/dashboard/admin/stats');
+  if (!res) return;
+  const d = await res.json();
+  document.getElementById('statsGrid').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Total Orders</div><div class="stat-value">${d.total_orders}</div></div>
+    <div class="stat-card warn"><div class="stat-label">Pending Batches</div><div class="stat-value">${d.pending_batches}</div></div>
+    <div class="stat-card info"><div class="stat-label">Active Deliveries</div><div class="stat-value">${d.active_deliveries}</div></div>
+    <div class="stat-card alert"><div class="stat-label">High-Risk Flagged</div><div class="stat-value">${d.flagged_high_risk}</div></div>
+    <div class="stat-card"><div class="stat-label">PoD Pending Review</div><div class="stat-value">${d.pod_pending_review}</div></div>
+    <div class="stat-card"><div class="stat-label">Total Users</div><div class="stat-value">${d.total_users}</div></div>
+  `;
+}
+
+async function loadUsers() {
+  const res = await apiFetch('/auth/users');
+  if (!res) return;
+  const d = await res.json();
+  const ROLE_BADGE = {
+    admin:'badge-red', warehouse_mgr:'badge-yellow', field_agent:'badge-blue',
+    supervisor:'badge-purple', farmer:'badge-green',
+  };
+  document.querySelector('#usersTable tbody').innerHTML = d.users.map(u => `
+    <tr>
+      <td>${u.name}</td>
+      <td>${u.email}</td>
+      <td><span class="badge ${ROLE_BADGE[u.role] || 'badge-gray'}">${u.role}</span></td>
+      <td><button class="btn btn-ghost" onclick="alert('User management coming soon')">Manage</button></td>
+    </tr>`).join('');
+}
+
+function renderEndpoints() {
+  const endpoints = [
+    ['GET',  '/auth/me',                                'All roles'],
+    ['GET',  '/auth/users',                             'Admin only'],
+    ['GET',  '/deliveries/<id>',                        'Admin, Warehouse, Agent, Supervisor'],
+    ['POST', '/proof-of-delivery/<id>',                 'Agent, Admin'],
+    ['GET',  '/inventory/warehouses/<id>/stock',        'Admin, Warehouse — User Story 1'],
+    ['POST', '/inventory/warehouses/<id>/sync',         'Admin, Warehouse — User Story 1'],
+    ['GET',  '/batches/by-district',                    'Admin, Warehouse — User Story 2'],
+    ['POST', '/batches/create-from-district',           'Admin, Warehouse — User Story 2'],
+    ['POST', '/batches/<id>/release-order',             'Admin, Warehouse — User Story 3'],
+    ['POST', '/deliveries/<id>/send-sms',               'Admin, Warehouse, Agent — User Story 4'],
+    ['POST', '/deliveries/bulk-sms',                    'Admin, Warehouse — User Story 4'],
+    ['POST', '/batches/regional-cluster',               'Admin, Warehouse — K-Means'],
+    ['GET',  '/dispatch/eligibility-check/<id>',        'Admin, Warehouse'],
+    ['POST', '/dispatch/route',                         'Admin, Warehouse'],
+    ['POST', '/dispatch/geofence-check',                'Agent, Admin, Supervisor'],
+    ['GET',  '/analytics/overview',                     'Admin — User Story 6'],
+    ['GET',  '/analytics/by-region',                    'Admin, Warehouse — User Story 6'],
+    ['GET',  '/analytics/weekly-trend',                 'Admin, Warehouse — User Story 6'],
+    ['GET',  '/routes/<id>/map',                        'Admin, Warehouse, Agent — User Story 7'],
+    ['POST', '/routes/<id>/stops/<n>/complete',         'Agent, Admin — User Story 7'],
+    ['GET',  '/dashboard/admin/stats',                  'Admin'],
+    ['GET',  '/dashboard/supervisor/flagged',           'Supervisor, Admin'],
+    ['GET',  '/dashboard/farmer/status',                'Farmer, Admin'],
+  ];
+  document.getElementById('endpointsTable').innerHTML = endpoints.map(([m,p,a]) => `
+    <tr>
+      <td><span class="badge ${m==='GET'?'badge-blue':'badge-green'}">${m}</span></td>
+      <td><code>/api/v1${p}</code></td>
+      <td style="font-size:12px;color:#666">${a}</td>
+    </tr>`).join('');
+}
+
+window.loadUsers = loadUsers;
+</script>
+</body>
+</html>

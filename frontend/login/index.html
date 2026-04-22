@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SmartTechBuddy – Login</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #1a3a1a 0%, #2d6a2d 50%, #1a4a1a 100%);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+    }
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      width: 100%;
+      max-width: 420px;
+      padding: 48px 40px 40px;
+    }
+    .logo { text-align: center; margin-bottom: 32px; }
+    .logo-icon {
+      width: 60px; height: 60px;
+      background: #2d6a2d;
+      border-radius: 50%;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 28px; margin-bottom: 12px;
+    }
+    .logo h1 { font-size: 22px; color: #1a3a1a; font-weight: 700; }
+    .logo p  { font-size: 13px; color: #666; margin-top: 4px; }
+    .field { margin-bottom: 20px; }
+    label { display: block; font-size: 13px; font-weight: 600; color: #333; margin-bottom: 6px; }
+    input {
+      width: 100%; padding: 12px 14px;
+      border: 1.5px solid #ddd; border-radius: 8px;
+      font-size: 15px; color: #222;
+      transition: border-color .2s;
+      outline: none;
+    }
+    input:focus { border-color: #2d6a2d; }
+    .btn {
+      width: 100%; padding: 13px;
+      background: #2d6a2d; color: #fff;
+      border: none; border-radius: 8px;
+      font-size: 16px; font-weight: 600;
+      cursor: pointer; margin-top: 8px;
+      transition: background .2s;
+    }
+    .btn:hover { background: #1a4a1a; }
+    .btn:disabled { background: #999; cursor: not-allowed; }
+    .error {
+      background: #fff0f0; border: 1px solid #ffcccc;
+      color: #cc0000; border-radius: 8px;
+      padding: 10px 14px; font-size: 13px;
+      margin-bottom: 16px; display: none;
+    }
+    .demo-accounts {
+      margin-top: 28px; border-top: 1px solid #eee; padding-top: 20px;
+    }
+    .demo-accounts h3 { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 10px; }
+    .demo-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 8px 10px; border-radius: 6px; cursor: pointer;
+      transition: background .15s; margin-bottom: 4px;
+    }
+    .demo-row:hover { background: #f0f8f0; }
+    .demo-role { font-size: 12px; font-weight: 600; color: #2d6a2d; }
+    .demo-email { font-size: 11px; color: #888; }
+    .role-badge {
+      font-size: 10px; padding: 2px 8px; border-radius: 999px;
+      font-weight: 700; text-transform: uppercase;
+    }
+    .role-admin      { background: #1a3a1a; color: #fff; }
+    .role-warehouse  { background: #d97706; color: #fff; }
+    .role-agent      { background: #0369a1; color: #fff; }
+    .role-supervisor { background: #7c3aed; color: #fff; }
+    .role-farmer     { background: #047857; color: #fff; }
+    .loading { display: none; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">
+    <div class="logo-icon">🌱</div>
+    <h1>SmartTechBuddy</h1>
+    <p>Input Distribution — GrowForMe Ecosystem</p>
+  </div>
+
+  <div class="error" id="errorMsg"></div>
+
+  <form id="loginForm">
+    <div class="field">
+      <label for="email">Email Address</label>
+      <input type="email" id="email" placeholder="you@smarttech.com" autocomplete="email" required />
+    </div>
+    <div class="field">
+      <label for="password">Password</label>
+      <input type="password" id="password" placeholder="••••••••" autocomplete="current-password" required />
+    </div>
+    <button type="submit" class="btn" id="loginBtn">Sign In</button>
+  </form>
+
+  <div class="demo-accounts">
+    <h3>Demo Accounts (click to fill)</h3>
+    <div class="demo-row" onclick="fill('admin@smarttech.com','Admin@1234')">
+      <div><div class="demo-role">System Admin</div><div class="demo-email">admin@smarttech.com</div></div>
+      <span class="role-badge role-admin">Admin</span>
+    </div>
+    <div class="demo-row" onclick="fill('warehouse@smarttech.com','Warehouse@1234')">
+      <div><div class="demo-role">Adwoa Mensah</div><div class="demo-email">warehouse@smarttech.com</div></div>
+      <span class="role-badge role-warehouse">Warehouse</span>
+    </div>
+    <div class="demo-row" onclick="fill('agent1@smarttech.com','Agent@1234')">
+      <div><div class="demo-role">Kwame Mensah</div><div class="demo-email">agent1@smarttech.com</div></div>
+      <span class="role-badge role-agent">Field Agent</span>
+    </div>
+    <div class="demo-row" onclick="fill('supervisor@smarttech.com','Super@1234')">
+      <div><div class="demo-role">Ama Koomson</div><div class="demo-email">supervisor@smarttech.com</div></div>
+      <span class="role-badge role-supervisor">Supervisor</span>
+    </div>
+    <div class="demo-row" onclick="fill('farmer@growforme.com','Farmer@1234')">
+      <div><div class="demo-role">Kofi Yeboah</div><div class="demo-email">farmer@growforme.com</div></div>
+      <span class="role-badge role-farmer">Farmer</span>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = 'http://localhost:5000/api/v1';
+
+function fill(email, pw) {
+  document.getElementById('email').value = email;
+  document.getElementById('password').value = pw;
+  document.getElementById('loginForm').dispatchEvent(new Event('submit'));
+}
+
+function showError(msg) {
+  const el = document.getElementById('errorMsg');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('loginBtn');
+  const errorEl = document.getElementById('errorMsg');
+  errorEl.style.display = 'none';
+  btn.disabled = true;
+  btn.textContent = 'Signing in…';
+
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+
+  try {
+    const res = await fetch(`${API}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      showError(data.error || 'Login failed');
+      return;
+    }
+
+    // Persist token + user in sessionStorage
+    sessionStorage.setItem('auth_token', data.token);
+    sessionStorage.setItem('auth_user', JSON.stringify(data.user));
+
+    // Redirect to role dashboard
+    const dashboardMap = {
+      admin:         '../dashboard/admin.html',
+      warehouse_mgr: '../dashboard/warehouse.html',
+      field_agent:   '../dashboard/field_agent.html',
+      supervisor:    '../dashboard/supervisor.html',
+      farmer:        '../dashboard/farmer.html',
+    };
+    const dest = dashboardMap[data.user.role] || '../dashboard/admin.html';
+    window.location.href = dest;
+  } catch (err) {
+    showError('Cannot reach server. Is the backend running on port 5000?');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Sign In';
+  }
+});
+
+// Auto-redirect if already logged in
+const token = sessionStorage.getItem('auth_token');
+if (token) {
+  const user = JSON.parse(sessionStorage.getItem('auth_user') || '{}');
+  const dashboardMap = {
+    admin: '../dashboard/admin.html', warehouse_mgr: '../dashboard/warehouse.html',
+    field_agent: '../dashboard/field_agent.html', supervisor: '../dashboard/supervisor.html',
+    farmer: '../dashboard/farmer.html',
+  };
+  if (user.role && dashboardMap[user.role]) window.location.href = dashboardMap[user.role];
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Supervisor Dashboard</title>
+  <link rel="stylesheet" href="../shared/dashboard.css" />
+</head>
+<body class="role-supervisor">
+<nav id="navbar"></nav>
+<div class="page-header">
+  <h1>Risk Review Console</h1>
+  <p>High-risk PoDs flagged by the anomaly detection engine — approve, escalate, or reject</p>
+</div>
+<main>
+  <div class="stat-grid" id="statsGrid">
+    <div class="loading-spinner">Loading…</div>
+  </div>
+
+  <div class="table-card">
+    <div class="table-card-header">
+      <h2>Flagged Deliveries</h2>
+      <button class="btn btn-primary" onclick="loadFlagged()">Refresh</button>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Delivery ID</th><th>Farmer</th><th>Risk Score</th>
+          <th>Flags</th><th>Submitted</th><th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="flaggedRows">
+        <tr><td colspan="6" class="loading-spinner">Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="table-card" id="reviewCard" style="display:none">
+    <div class="table-card-header"><h2 id="reviewTitle">Review Delivery</h2></div>
+    <div style="padding:20px">
+      <div style="margin-bottom:16px">
+        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:6px">Supervisor Notes</label>
+        <textarea id="reviewNotes" rows="3" style="width:100%;padding:10px;border:1.5px solid #ddd;border-radius:8px;font-size:14px;resize:vertical"></textarea>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-primary" onclick="submitReview('approve')">✓ Approve</button>
+        <button class="btn btn-ghost"   onclick="submitReview('escalate')">↑ Escalate</button>
+        <button class="btn btn-danger"  onclick="submitReview('reject')">✗ Reject</button>
+        <button class="btn btn-ghost"   onclick="closeReview()">Cancel</button>
+      </div>
+      <div id="reviewResult" style="margin-top:16px"></div>
+    </div>
+  </div>
+</main>
+
+<script type="module">
+import { requireAuth, renderNav, apiFetch } from '../shared/auth.js';
+
+let _currentDelivery = null;
+
+const user = requireAuth('admin', 'supervisor');
+if (user) {
+  renderNav(user);
+  loadFlagged();
+}
+
+async function loadFlagged() {
+  const res = await apiFetch('/dashboard/supervisor/flagged');
+  if (!res) return;
+  const d = await res.json();
+
+  document.getElementById('statsGrid').innerHTML = `
+    <div class="stat-card alert"><div class="stat-label">Pending Review</div><div class="stat-value">${d.total_flagged}</div></div>
+    <div class="stat-card info"><div class="stat-label">Reviewed Today</div><div class="stat-value">${d.reviewed_today}</div></div>
+  `;
+
+  document.getElementById('flaggedRows').innerHTML = d.flagged_deliveries.map(del => `
+    <tr>
+      <td><strong>${del.delivery_id}</strong></td>
+      <td>${del.farmer}</td>
+      <td>
+        <span class="badge badge-red">${del.risk_score}/100</span>
+      </td>
+      <td style="font-size:12px">${del.flags.join(', ')}</td>
+      <td style="font-size:12px">${new Date(del.submitted_at).toLocaleString()}</td>
+      <td><button class="btn btn-primary" onclick="openReview('${del.delivery_id}','${del.farmer}')">Review</button></td>
+    </tr>`).join('');
+}
+
+function openReview(deliveryId, farmer) {
+  _currentDelivery = deliveryId;
+  document.getElementById('reviewTitle').textContent = `Review ${deliveryId} — ${farmer}`;
+  document.getElementById('reviewNotes').value = '';
+  document.getElementById('reviewResult').innerHTML = '';
+  document.getElementById('reviewCard').style.display = 'block';
+  document.getElementById('reviewCard').scrollIntoView({ behavior: 'smooth' });
+}
+
+function closeReview() {
+  document.getElementById('reviewCard').style.display = 'none';
+  _currentDelivery = null;
+}
+
+async function submitReview(action) {
+  if (!_currentDelivery) return;
+  const notes = document.getElementById('reviewNotes').value;
+  const res = await apiFetch(`/dashboard/supervisor/review/${_currentDelivery}`, {
+    method: 'POST',
+    body: JSON.stringify({ action, notes }),
+  });
+  if (!res) return;
+  const d = await res.json();
+  const colours = { approve: '#d1fae5', escalate: '#fef3c7', reject: '#fee2e2' };
+  document.getElementById('reviewResult').innerHTML = `
+    <div style="padding:12px;background:${colours[d.action]};border-radius:8px">
+      ✓ <strong>${d.action.toUpperCase()}</strong> recorded by ${d.reviewed_by} at ${new Date(d.reviewed_at).toLocaleTimeString()}
+    </div>`;
+  await loadFlagged();
+}
+
+window.loadFlagged   = loadFlagged;
+window.openReview    = openReview;
+window.closeReview   = closeReview;
+window.submitReview  = submitReview;
+</script>
+</body>
+</html>

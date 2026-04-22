@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Field Agent Dashboard</title>
+  <link rel="stylesheet" href="../shared/dashboard.css" />
+</head>
+<body class="role-field-agent">
+<nav id="navbar"></nav>
+<div class="page-header">
+  <h1>My Deliveries</h1>
+  <p>Your assigned deliveries for today — submit Proof of Delivery for each stop</p>
+</div>
+<main>
+  <div class="stat-grid" id="statsGrid">
+    <div class="loading-spinner">Loading…</div>
+  </div>
+
+  <div class="table-card">
+    <div class="table-card-header">
+      <h2>Assigned Deliveries</h2>
+      <button class="btn btn-primary" onclick="loadDeliveries()">Refresh</button>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Delivery ID</th><th>Farmer</th><th>District</th>
+          <th>Status</th><th>ETA</th><th>PoD</th>
+        </tr>
+      </thead>
+      <tbody id="deliveryRows">
+        <tr><td colspan="6" class="loading-spinner">Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="table-card">
+    <div class="table-card-header">
+      <h2>Driver Route Map</h2>
+    </div>
+    <div style="padding:16px;display:flex;gap:12px;flex-wrap:wrap">
+      <a href="driver_map.html?route_id=ROUTE-001" class="btn btn-primary">🗺️ Open Route Map</a>
+      <button class="btn btn-ghost" onclick="sendBulkSMSAll()">📱 SMS All Farmers (Out for Delivery)</button>
+    </div>
+  </div>
+
+  <div class="table-card">
+    <div class="table-card-header">
+      <h2>Geofence Test</h2>
+      <button class="btn btn-primary" onclick="testGeofence()">Test Current Location</button>
+    </div>
+    <div id="geofencePanel" style="padding:16px;font-size:14px;color:#555">
+      Click to test your GPS location against the delivery farm coordinates.
+    </div>
+  </div>
+</main>
+
+<script type="module">
+import { requireAuth, renderNav, apiFetch } from '../shared/auth.js';
+
+const user = requireAuth('admin', 'field_agent');
+if (user) {
+  renderNav(user);
+  loadDeliveries();
+}
+
+async function loadDeliveries() {
+  const res = await apiFetch('/dashboard/field-agent/deliveries');
+  if (!res) return;
+  const d = await res.json();
+
+  document.getElementById('statsGrid').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Pending Deliveries</div><div class="stat-value">${d.pending}</div></div>
+    <div class="stat-card info"><div class="stat-label">Completed Today</div><div class="stat-value">${d.completed_today}</div></div>
+    <div class="stat-card"><div class="stat-label">Agent</div><div class="stat-value" style="font-size:18px">${d.agent_name}</div></div>
+  `;
+
+  const STATUS_BADGE = { in_transit: 'badge-blue', scheduled: 'badge-gray', delivered: 'badge-green', failed: 'badge-red' };
+  document.getElementById('deliveryRows').innerHTML = d.deliveries.map(del => `
+    <tr>
+      <td><strong>${del.delivery_id}</strong></td>
+      <td>${del.farmer}</td>
+      <td>${del.district}</td>
+      <td><span class="badge ${STATUS_BADGE[del.status] || 'badge-gray'}">${del.status.replace('_',' ')}</span></td>
+      <td>${del.eta}</td>
+      <td>
+        ${del.pod_submitted
+          ? '<span class="badge badge-green">Submitted</span>'
+          : `<a href="../pod-interface/index.html?delivery_id=${del.delivery_id}" class="btn btn-primary" style="font-size:12px;padding:5px 10px">Submit PoD</a>`}
+      </td>
+    </tr>`).join('');
+}
+
+async function testGeofence() {
+  const panel = document.getElementById('geofencePanel');
+  if (!navigator.geolocation) {
+    panel.innerHTML = '<div class="alert-box">Geolocation not supported in this browser.</div>';
+    return;
+  }
+  panel.innerHTML = '<em>Getting GPS location…</em>';
+  navigator.geolocation.getCurrentPosition(async (pos) => {
+    const { latitude, longitude, accuracy } = pos.coords;
+    panel.innerHTML = `<em>GPS: ${latitude.toFixed(5)}, ${longitude.toFixed(5)} (±${Math.round(accuracy)}m) — checking geofence…</em>`;
+    const res = await apiFetch('/dispatch/geofence-check', {
+      method: 'POST',
+      body: JSON.stringify({
+        farmer_latitude: 31.6295, farmer_longitude: 74.8696,
+        current_latitude: latitude, current_longitude: longitude,
+      }),
+    });
+    if (!res) return;
+    const d = await res.json();
+    const colours = { LOW: '#d1fae5', MEDIUM: '#fef3c7', HIGH: '#fee2e2' };
+    panel.innerHTML = `
+      <div style="padding:14px;background:${colours[d.risk_level]||'#f3f4f6'};border-radius:8px">
+        <strong>Risk Level:</strong> ${d.risk_level} &nbsp;|&nbsp;
+        <strong>Within Geofence:</strong> ${d.is_within_geofence ? '✓ Yes' : '✗ No'} &nbsp;|&nbsp;
+        <strong>Deviation:</strong> ${d.deviation_meters?.toFixed(0)}m
+        ${d.flags?.length ? `<div style="margin-top:8px;font-size:12px">Flags: ${d.flags.join(', ')}</div>` : ''}
+      </div>`;
+  }, () => {
+    panel.innerHTML = '<div class="alert-box">GPS access denied. Enable location permissions.</div>';
+  }, { enableHighAccuracy: true, timeout: 10000 });
+}
+
+async function sendBulkSMSAll() {
+  const res = await apiFetch('/deliveries/bulk-sms', {
+    method: 'POST',
+    body: JSON.stringify({ delivery_ids: ['DEL-001','DEL-002'], agent_name: user.name, eta_minutes: 30 }),
+  });
+  if (res && res.ok) {
+    const d = await res.json();
+    alert(`✓ Out-for-Delivery SMS sent to ${d.total_sent} farmer(s).`);
+  }
+}
+
+window.loadDeliveries = loadDeliveries;
+window.testGeofence   = testGeofence;
+window.sendBulkSMSAll = sendBulkSMSAll;
+</script>
+</body>
+</html>

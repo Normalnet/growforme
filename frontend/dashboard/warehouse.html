@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Warehouse Dashboard</title>
+  <link rel="stylesheet" href="../shared/dashboard.css" />
+</head>
+<body class="role-warehouse">
+<nav id="navbar"></nav>
+<div class="page-header">
+  <h1>Warehouse Management</h1>
+  <p>Inventory levels, batch routing, and dispatch pipeline</p>
+</div>
+<main>
+  <div class="stat-grid" id="statsGrid">
+    <div class="loading-spinner">Loading…</div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+
+    <div class="table-card">
+      <div class="table-card-header">
+        <h2>Inventory Alerts</h2>
+        <button class="btn btn-primary" onclick="runInventoryCheck()">Check Stock</button>
+      </div>
+      <div id="inventoryPanel" style="padding:16px;font-size:14px;color:#555">
+        Click "Check Stock" to query Input Acquisition API.
+      </div>
+    </div>
+
+    <div class="table-card">
+      <div class="table-card-header">
+        <h2>Eligibility Check</h2>
+        <button class="btn btn-primary" onclick="runEligibility()">Run for Farmer-001</button>
+      </div>
+      <div id="eligibilityPanel" style="padding:16px;font-size:14px;color:#555">
+        Click to run credit scoring API.
+      </div>
+    </div>
+
+    <div class="table-card" style="grid-column:1/-1">
+      <div class="table-card-header">
+        <h2>K-Means Regional Batching</h2>
+        <button class="btn btn-primary" onclick="runBatching()">Run Clustering</button>
+      </div>
+      <div id="batchingPanel" style="padding:16px;font-size:14px;color:#555">
+        Click to cluster sample deliveries using K-Means++.
+      </div>
+    </div>
+
+    <div class="table-card" style="grid-column:1/-1">
+      <div class="table-card-header">
+        <h2>Dispatch Route Optimisation</h2>
+        <button class="btn btn-primary" onclick="runDispatch()">Run TSP Pipeline</button>
+      </div>
+      <div id="dispatchPanel" style="padding:16px;font-size:14px;color:#555">
+        Click to run the full 6-step dispatch pipeline (inventory → credit → route → monitor).
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<script type="module">
+import { requireAuth, renderNav, apiFetch } from '../shared/auth.js';
+
+const user = requireAuth('admin', 'warehouse_mgr');
+if (user) {
+  renderNav(user);
+  loadStats();
+}
+
+async function loadStats() {
+  const res = await apiFetch('/dashboard/warehouse/stats');
+  if (!res) return;
+  const d = await res.json();
+  document.getElementById('statsGrid').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Batches Today</div><div class="stat-value">${d.total_batches_today}</div></div>
+    <div class="stat-card info"><div class="stat-label">Routes Optimised</div><div class="stat-value">${d.routes_optimized}</div></div>
+    <div class="stat-card warn"><div class="stat-label">Inventory Alerts</div><div class="stat-value">${d.inventory_alerts}</div></div>
+    <div class="stat-card"><div class="stat-label">In Transit</div><div class="stat-value">${d.deliveries_in_transit}</div></div>
+    <div class="stat-card alert"><div class="stat-label">Low Stock SKUs</div><div class="stat-value">${d.items_low_stock.length}</div><div class="stat-sub">${d.items_low_stock.join(', ')}</div></div>
+    <div class="stat-card"><div class="stat-label">Dispatch Queue</div><div class="stat-value">${d.dispatch_queue}</div></div>
+  `;
+}
+
+async function runInventoryCheck() {
+  const panel = document.getElementById('inventoryPanel');
+  panel.innerHTML = '<em>Querying Input Acquisition API…</em>';
+  const res = await apiFetch('/dispatch/inventory-check', {
+    method: 'POST',
+    body: JSON.stringify({ items: [{ sku: 'SEED-001', quantity: 50 }, { sku: 'FERT-002', quantity: 20 }] }),
+  });
+  if (!res) return;
+  const d = await res.json();
+  panel.innerHTML = `<pre style="font-size:12px;white-space:pre-wrap">${JSON.stringify(d, null, 2)}</pre>`;
+}
+
+async function runEligibility() {
+  const panel = document.getElementById('eligibilityPanel');
+  panel.innerHTML = '<em>Checking credit score…</em>';
+  const res = await apiFetch('/dispatch/eligibility-check/farmer-001');
+  if (!res) return;
+  const d = await res.json();
+  const colour = d.eligible ? '#d1fae5' : '#fee2e2';
+  panel.innerHTML = `
+    <div style="padding:10px;background:${colour};border-radius:8px;margin-bottom:10px">
+      <strong>Eligible:</strong> ${d.eligible ? '✓ Yes' : '✗ No'} &nbsp;|&nbsp;
+      <strong>Credit Score:</strong> ${d.credit_score} &nbsp;|&nbsp;
+      <strong>Limit:</strong> GH₵${d.credit_limit?.toLocaleString() || 'N/A'}
+    </div>
+    <pre style="font-size:11px;white-space:pre-wrap">${JSON.stringify(d, null, 2)}</pre>`;
+}
+
+async function runBatching() {
+  const panel = document.getElementById('batchingPanel');
+  panel.innerHTML = '<em>Running K-Means++ clustering…</em>';
+  const sample = Array.from({length: 12}, (_, i) => ({
+    delivery_id: `DEL-${String(i+1).padStart(3,'0')}`,
+    farmer_id: `farmer-${i+1}`,
+    district: i < 6 ? 'Accra' : 'Kumasi',
+    latitude:  31.6295 + (Math.random() - 0.5) * 0.4,
+    longitude: 74.8696 + (Math.random() - 0.5) * 0.4,
+    order_amount: 3000 + Math.round(Math.random() * 5000),
+  }));
+  const res = await apiFetch('/batches/regional-cluster', { method: 'POST', body: JSON.stringify({ deliveries: sample }) });
+  if (!res) return;
+  const d = await res.json();
+  panel.innerHTML = `
+    <p style="margin-bottom:12px"><strong>${d.total_batches}</strong> clusters created from ${d.total_deliveries} deliveries</p>
+    ${d.batches.map(b => `
+      <div style="background:#f8faf8;border-left:3px solid #2d6a2d;padding:10px;margin-bottom:8px;border-radius:4px">
+        <strong>${b.batch_id}</strong> — ${b.district || 'Multi-district'}
+        | ${b.delivery_count} stops
+        | GH₵${b.total_amount?.toLocaleString()}
+        | centroid (${b.centroid_lat?.toFixed(4)}, ${b.centroid_lon?.toFixed(4)})
+      </div>`).join('')}`;
+}
+
+async function runDispatch() {
+  const panel = document.getElementById('dispatchPanel');
+  panel.innerHTML = '<em>Running dispatch pipeline…</em>';
+  const res = await apiFetch('/dispatch/route', {
+    method: 'POST',
+    body: JSON.stringify({
+      farmer_id: 'farmer-001',
+      warehouse_id: 'warehouse-001',
+      items: [{ sku: 'SEED-001', quantity: 50 }],
+      deliveries: [{ delivery_id: 'DEL-001', latitude: 31.6295, longitude: 74.8696 }],
+    }),
+  });
+  if (!res) return;
+  const d = await res.json();
+  panel.innerHTML = `<pre style="font-size:12px;white-space:pre-wrap">${JSON.stringify(d, null, 2)}</pre>`;
+}
+
+window.runInventoryCheck = runInventoryCheck;
+window.runEligibility    = runEligibility;
+window.runBatching       = runBatching;
+window.runDispatch       = runDispatch;
+</script>
+</body>
+</html>

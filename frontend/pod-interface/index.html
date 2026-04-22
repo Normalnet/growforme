@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>SmartTechBuddy - Proof of Delivery</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div class="pod-container">
+        <!-- Header -->
+        <header class="pod-header">
+            <div class="header-content">
+                <h1>SmartTechBuddy</h1>
+                <p class="header-subtitle">Proof of Delivery</p>
+            </div>
+            <div class="header-info">
+                <span class="delivery-number" id="deliveryNumber">Loading...</span>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="pod-main">
+            <form id="podForm" class="pod-form" method="POST">
+                
+                <!-- Delivery Information Section -->
+                <section class="form-section">
+                    <h2 class="section-title">Delivery Information</h2>
+                    
+                    <div class="form-group">
+                        <label for="deliveryID">Delivery ID *</label>
+                        <input type="text" id="deliveryID" name="delivery_id" required readonly 
+                               placeholder="Auto-populated" class="form-control">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group half">
+                            <label for="farmerName">Farmer Name *</label>
+                            <input type="text" id="farmerName" name="farmer_name" required 
+                                   placeholder="Enter farmer's full name" class="form-control">
+                        </div>
+                        <div class="form-group half">
+                            <label for="farmerPhone">Farmer Phone *</label>
+                            <input type="tel" id="farmerPhone" name="farmer_phone" required 
+                                   placeholder="Enter phone number" class="form-control">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="deliveryCondition">Delivery Condition *</label>
+                        <select id="deliveryCondition" name="delivery_condition" required class="form-control">
+                            <option value="">Select condition...</option>
+                            <option value="perfect">Perfect Condition</option>
+                            <option value="minor_damage">Minor Damage</option>
+                            <option value="major_damage">Major Damage</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="deliveryNotes">Delivery Notes</label>
+                        <textarea id="deliveryNotes" name="notes" rows="3" placeholder="Additional notes..." 
+                                  class="form-control"></textarea>
+                    </div>
+                </section>
+
+                <!-- Location Information Section -->
+                <section class="form-section">
+                    <h2 class="section-title">Location Verification</h2>
+                    
+                    <div id="mapContainer" class="map-container">
+                        <div id="map" class="map"></div>
+                        <button type="button" class="btn btn-secondary btn-sm" id="getLocationBtn">
+                            📍 Get Current Location
+                        </button>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group half">
+                            <label for="latitude">Latitude *</label>
+                            <input type="number" id="latitude" name="location_latitude" required step="0.0001"
+                                   placeholder="Latitude" class="form-control" readonly>
+                        </div>
+                        <div class="form-group half">
+                            <label for="longitude">Longitude *</label>
+                            <input type="number" id="longitude" name="location_longitude" required step="0.0001"
+                                   placeholder="Longitude" class="form-control" readonly>
+                        </div>
+                    </div>
+
+                    <!-- Geofence / Risk Panel (populated after GPS capture) -->
+                    <div id="geofencePanel" class="geofence-panel" style="display:none;">
+                        <div id="geofenceBadge" class="geofence-badge"></div>
+                        <div id="geofenceDetail" class="geofence-detail"></div>
+                        <div id="geofenceFlags" class="geofence-flags"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="accuracy">GPS Accuracy (meters)</label>
+                        <input type="number" id="accuracy" name="accuracy_meters" 
+                               placeholder="Accuracy" class="form-control" readonly>
+                    </div>
+                </section>
+
+                <!-- Signature Capture Section -->
+                <section class="form-section">
+                    <h2 class="section-title">Digital Signature *</h2>
+                    <p class="section-description">Please sign in the box below to confirm delivery</p>
+                    
+                    <div class="signature-container">
+                        <canvas id="signatureCanvas" class="signature-canvas"></canvas>
+                        <div class="signature-controls">
+                            <button type="button" class="btn btn-secondary btn-sm" id="clearSignature">
+                                Clear Signature
+                            </button>
+                        </div>
+                    </div>
+                    <input type="hidden" id="signatureData" name="signature_data">
+                </section>
+
+                <!-- Photo Evidence Section -->
+                <section class="form-section">
+                    <h2 class="section-title">Photo Evidence</h2>
+                    <p class="section-description">Take photos of items delivered for verification</p>
+                    
+                    <div class="photo-input-group">
+                        <label for="photoUpload" class="photo-upload-label">
+                            <span class="photo-icon">📷</span>
+                            <span>Take or Upload Photos</span>
+                        </label>
+                        <input type="file" id="photoUpload" name="photos" accept="image/*" multiple
+                               class="photo-input" capture="environment">
+                    </div>
+
+                    <div id="photoPreview" class="photo-preview">
+                        <!-- Photos will be displayed here -->
+                    </div>
+                    
+                    <input type="hidden" id="photosData" name="photos">
+                </section>
+
+                <!-- Items Verification Section -->
+                <section class="form-section">
+                    <h2 class="section-title">Items Verification</h2>
+                    
+                    <div id="itemsContainer" class="items-container">
+                        <!-- Items will be dynamically loaded -->
+                        <p class="loading-text">Loading order items...</p>
+                    </div>
+                    
+                    <input type="hidden" id="itemsVerified" name="items_verified">
+                </section>
+
+                <!-- Device Information Section -->
+                <section class="form-section">
+                    <h2 class="section-title">Device Information</h2>
+                    
+                    <div class="form-group">
+                        <label for="deviceID">Device ID</label>
+                        <input type="text" id="deviceID" name="device_id" placeholder="Device ID"
+                               class="form-control" readonly>
+                    </div>
+                </section>
+
+                <!-- Risk Assessment Summary (shown after successful submission) -->
+                <div id="riskSummary" class="risk-summary" style="display:none;"></div>
+
+                <!-- Form Actions -->
+                <section class="form-actions">
+                    <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
+                        Submit Proof of Delivery
+                    </button>
+                    <button type="reset" class="btn btn-secondary btn-lg" id="resetBtn">
+                        Clear Form
+                    </button>
+                </section>
+
+                <!-- Success Message -->
+                <div id="successMessage" class="alert alert-success" style="display: none;">
+                    <strong>✓ Success!</strong> Proof of Delivery submitted successfully.
+                </div>
+
+                <!-- Error Message -->
+                <div id="errorMessage" class="alert alert-error" style="display: none;">
+                    <strong>✗ Error!</strong> <span id="errorText"></span>
+                </div>
+
+            </form>
+        </main>
+
+        <!-- Footer -->
+        <footer class="pod-footer">
+            <p>&copy; 2026 SmartTechBuddy - GrowForMe Agro-FinTech Ecosystem</p>
+        </footer>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/signature.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

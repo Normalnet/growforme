@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>Driver Route Map</title>
+  <link rel="stylesheet" href="../shared/dashboard.css" />
+  <style>
+    body { background:#f0f4f0; }
+    .route-header {
+      background: linear-gradient(135deg, #1a3a1a, #2d6a2d);
+      color: #fff; padding: 16px 20px;
+    }
+    .route-header h1 { font-size: 18px; margin-bottom: 4px; }
+    .route-header p  { font-size: 13px; opacity: .8; }
+    .route-meta { display:flex; gap:20px; flex-wrap:wrap; margin-top:10px; }
+    .route-meta-item { font-size:12px; }
+    .route-meta-item strong { font-size:16px; display:block; }
+
+    .map-frame {
+      background: #e8f5e9;
+      border-bottom: 3px solid #2d6a2d;
+      min-height: 220px;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      font-size: 14px; color: #444;
+      position: relative; overflow: hidden;
+      padding: 16px;
+    }
+    .map-open-btn {
+      display: inline-block; background: #2d6a2d; color: #fff;
+      padding: 12px 24px; border-radius: 8px; font-weight: 700;
+      text-decoration: none; font-size: 15px; margin-top: 10px;
+    }
+    .map-open-btn:hover { background: #1a4a1a; }
+    .map-pin { font-size: 32px; margin-bottom: 6px; }
+
+    .stop-list { padding: 0 16px 80px; }
+    .stop-card {
+      background: #fff; border-radius: 12px;
+      box-shadow: 0 1px 5px rgba(0,0,0,.08);
+      margin-bottom: 12px; overflow: hidden;
+      border-left: 4px solid #ddd;
+      transition: border-color .2s;
+    }
+    .stop-card.status-pending   { border-left-color: #d97706; }
+    .stop-card.status-completed { border-left-color: #2d6a2d; }
+    .stop-card.status-current   { border-left-color: #0369a1; box-shadow: 0 2px 12px rgba(3,105,161,.2); }
+
+    .stop-header {
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 16px; cursor: pointer;
+    }
+    .stop-num {
+      width: 32px; height: 32px; border-radius: 50%; background: #2d6a2d;
+      color: #fff; font-weight: 700; font-size: 14px;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .stop-info { flex: 1; min-width: 0; }
+    .stop-name { font-weight: 700; font-size: 15px; color: #1a3a1a; }
+    .stop-address { font-size: 12px; color: #888; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .stop-eta { font-size: 12px; font-weight: 600; color: #2d6a2d; }
+    .stop-dist { font-size: 11px; color: #aaa; }
+
+    .stop-detail { padding: 0 16px 16px; border-top: 1px solid #f0f0f0; display: none; }
+    .stop-detail.open { display: block; }
+    .detail-row { display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
+    .detail-btn {
+      display: flex; align-items: center; gap: 6px;
+      padding: 10px 16px; border-radius: 8px; font-weight: 600; font-size: 13px;
+      text-decoration: none; border: none; cursor: pointer; transition: opacity .15s;
+    }
+    .detail-btn:hover { opacity: .85; }
+    .btn-nav { background: #0369a1; color: #fff; }
+    .btn-sms { background: #2d6a2d; color: #fff; }
+    .btn-pod { background: #d97706; color: #fff; }
+    .btn-done { background: #1a4a1a; color: #fff; }
+    .items-tag { background: #f0f8f0; border-radius: 6px; padding: 6px 10px; font-size:12px; color:#1a3a1a; }
+
+    .bottom-bar {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: #fff; border-top: 1px solid #ddd;
+      padding: 12px 20px; display: flex; gap: 10px;
+      box-shadow: 0 -2px 8px rgba(0,0,0,.1);
+    }
+    .bottom-bar button { flex: 1; }
+
+    .toast {
+      position: fixed; top: 80px; left: 50%; transform: translateX(-50%);
+      background: #1a3a1a; color: #fff; padding: 12px 24px; border-radius: 10px;
+      font-size: 14px; font-weight: 600; z-index: 999;
+      opacity: 0; transition: opacity .3s; pointer-events: none;
+    }
+    .toast.show { opacity: 1; }
+
+    .warehouse-marker {
+      background: #1a3a1a; color: #fff; padding: 10px 16px;
+      border-radius: 8px; font-size: 13px; font-weight: 600;
+      margin-bottom: 12px; display: flex; align-items: center; gap: 8px;
+    }
+  </style>
+</head>
+<body>
+<nav id="navbar"></nav>
+
+<!-- Route Summary Header -->
+<div class="route-header" id="routeHeader">
+  <h1>Loading route…</h1>
+  <p>Fetching optimized sequence from server</p>
+  <div class="route-meta" id="routeMeta"></div>
+</div>
+
+<!-- Map Placeholder + Open in Google Maps -->
+<div class="map-frame" id="mapFrame">
+  <div class="map-pin">🗺️</div>
+  <div>Tap to open full route in Google Maps</div>
+  <a id="fullRouteLink" href="#" target="_blank" class="map-open-btn">Open Route in Maps ↗</a>
+</div>
+
+<!-- Stop-by-stop list -->
+<div class="stop-list" id="stopList">
+  <div class="loading-spinner">Loading stops…</div>
+</div>
+
+<!-- Bottom action bar -->
+<div class="bottom-bar">
+  <button class="btn btn-primary" onclick="sendBulkSMS()">📱 SMS All Farmers</button>
+  <button class="btn btn-ghost" onclick="location.reload()">Refresh</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { requireAuth, renderNav, apiFetch } from '../shared/auth.js';
+
+const ROUTE_ID = new URLSearchParams(location.search).get('route_id') || 'ROUTE-001';
+let _stops = [];
+
+const user = requireAuth('admin', 'warehouse_mgr', 'field_agent');
+if (user) {
+  renderNav(user);
+  loadRoute();
+}
+
+async function loadRoute() {
+  const res = await apiFetch(`/routes/${ROUTE_ID}/map`);
+  if (!res || !res.ok) return;
+  const d = await res.json();
+  _stops = d.stops;
+
+  // Header
+  document.getElementById('routeHeader').innerHTML = `
+    <h1>Route ${ROUTE_ID}</h1>
+    <p>${d.warehouse.name}</p>
+    <div class="route-meta">
+      <div class="route-meta-item"><strong>${d.total_stops}</strong> Stops</div>
+      <div class="route-meta-item"><strong>${d.total_distance_km} km</strong> Total</div>
+      <div class="route-meta-item"><strong>${d.estimated_duration_hours}h</strong> Est. Time</div>
+      <div class="route-meta-item"><strong>↓${d.distance_reduction_pct}%</strong> Optimized</div>
+    </div>`;
+
+  // Map link
+  document.getElementById('fullRouteLink').href = d.full_route_google_maps;
+
+  // Stop list
+  const wh = d.warehouse;
+  let html = `<div class="warehouse-marker">🏭 START: ${wh.name}<br><span style="font-weight:400;font-size:11px">${wh.address}</span></div>`;
+
+  html += d.stops.map((s, i) => `
+    <div class="stop-card status-${s.status}" id="stop-${s.stop_number}">
+      <div class="stop-header" onclick="toggleStop(${s.stop_number})">
+        <div class="stop-num">${s.stop_number}</div>
+        <div class="stop-info">
+          <div class="stop-name">${s.farmer_name}</div>
+          <div class="stop-address">${s.address}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div class="stop-eta">${s.estimated_arrival}</div>
+          <div class="stop-dist">${s.distance_from_prev_km > 0 ? '+' + s.distance_from_prev_km + ' km' : 'Start'}</div>
+        </div>
+      </div>
+      <div class="stop-detail" id="detail-${s.stop_number}">
+        <div style="margin-bottom:10px">
+          <span class="items-tag">📦 ${s.items_summary}</span>
+        </div>
+        <div class="detail-row">
+          <a href="${s.navigate_link}" target="_blank" class="detail-btn btn-nav">🧭 Navigate</a>
+          <button class="detail-btn btn-sms" onclick="sendSMS('${s.delivery_id}','${s.farmer_name}',${s.stop_number})">📱 SMS Farmer</button>
+          <a href="../pod-interface/index.html?delivery_id=${s.delivery_id}" class="detail-btn btn-pod">📋 Submit PoD</a>
+          <button class="detail-btn btn-done" onclick="markComplete('${s.delivery_id}',${s.stop_number})">✓ Mark Done</button>
+        </div>
+        <div style="font-size:11px;color:#aaa;margin-top:6px">GPS: ${s.latitude}, ${s.longitude} · Delivery: ${s.delivery_id}</div>
+      </div>
+    </div>`).join('');
+
+  html += `<div class="warehouse-marker" style="background:#064e3b">🏭 RETURN: ${wh.name}</div>`;
+  document.getElementById('stopList').innerHTML = html;
+}
+
+function toggleStop(num) {
+  const el = document.getElementById(`detail-${num}`);
+  el.classList.toggle('open');
+}
+
+async function sendSMS(deliveryId, farmerName, stopNum) {
+  const res = await apiFetch(`/deliveries/${deliveryId}/send-sms`, {
+    method: 'POST',
+    body: JSON.stringify({ event: 'out_for_delivery', farmer_name: farmerName, eta_minutes: stopNum * 15 }),
+  });
+  if (res && res.ok) showToast(`📱 SMS sent to ${farmerName}`);
+}
+
+async function sendBulkSMS() {
+  const deliveryIds = _stops.map(s => s.delivery_id);
+  const res = await apiFetch('/deliveries/bulk-sms', {
+    method: 'POST',
+    body: JSON.stringify({ delivery_ids: deliveryIds, agent_name: 'Field Agent', eta_minutes: 30 }),
+  });
+  if (res && res.ok) {
+    const d = await res.json();
+    showToast(`📱 ${d.total_sent} SMS alerts sent to all farmers`);
+  }
+}
+
+async function markComplete(deliveryId, stopNum) {
+  const res = await apiFetch(`/routes/${ROUTE_ID}/stops/${stopNum}/complete`, {
+    method: 'POST',
+    body: JSON.stringify({ pod_id: `POD-${stopNum}` }),
+  });
+  if (res && res.ok) {
+    const card = document.getElementById(`stop-${stopNum}`);
+    if (card) {
+      card.className = 'stop-card status-completed';
+      card.querySelector('.stop-num').style.background = '#2d6a2d';
+    }
+    showToast(`✓ Stop ${stopNum} marked complete`);
+  }
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+window.toggleStop   = toggleStop;
+window.sendSMS      = sendSMS;
+window.sendBulkSMS  = sendBulkSMS;
+window.markComplete = markComplete;
+</script>
+</body>
+</html>

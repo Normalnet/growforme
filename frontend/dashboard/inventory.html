@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Inventory Sync – Input Acquisition</title>
+  <link rel="stylesheet" href="../shared/dashboard.css" />
+  <style>
+    .filter-bar { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:20px; align-items:center; }
+    .filter-bar select, .filter-bar input {
+      padding:8px 12px; border:1.5px solid #ddd; border-radius:7px;
+      font-size:13px; color:#333; outline:none;
+    }
+    .filter-bar select:focus, .filter-bar input:focus { border-color:#2d6a2d; }
+    .sync-status { display:flex; align-items:center; gap:8px; font-size:13px; }
+    .sync-dot { width:9px; height:9px; border-radius:50%; background:#2d6a2d; animation:pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+    .item-type-badge { font-size:10px; border-radius:4px; padding:2px 6px; font-weight:700; text-transform:uppercase; }
+    .type-seeds           { background:#fef9c3; color:#713f12; }
+    .type-fertilizer_basal{ background:#d1fae5; color:#065f46; }
+    .type-fertilizer_top_dressing{ background:#dbeafe; color:#1e40af; }
+    .type-chemical        { background:#fee2e2; color:#991b1b; }
+    .type-mechanization   { background:#f3e8ff; color:#6b21a8; }
+    .stock-bar { height:8px; border-radius:999px; background:#e5e7eb; width:100px; overflow:hidden; display:inline-block; }
+    .stock-fill{ height:100%; border-radius:999px; }
+    .release-order-panel {
+      background:#f8faf8; border:1px solid #b0d8b0; border-radius:12px;
+      padding:20px; margin-top:20px;
+    }
+  </style>
+</head>
+<body class="role-warehouse">
+<nav id="navbar"></nav>
+<div class="page-header">
+  <h1>Inventory Sync — Input Acquisition Project</h1>
+  <p>Real-time stock levels synced from the GrowForMe Input Acquisition database</p>
+</div>
+<main>
+  <div class="stat-grid" id="summaryCards">
+    <div class="loading-spinner">Loading…</div>
+  </div>
+
+  <div class="table-card">
+    <div class="table-card-header">
+      <h2>Warehouse Stock Levels</h2>
+      <div style="display:flex;gap:10px;align-items:center">
+        <div class="sync-status"><div class="sync-dot"></div><span id="lastSyncLabel">Synced just now</span></div>
+        <button class="btn btn-primary" onclick="triggerSync()">Force Sync</button>
+      </div>
+    </div>
+
+    <div style="padding:12px 16px;border-bottom:1px solid #eee" class="filter-bar">
+      <select id="inputTypeFilter" onchange="applyFilters()">
+        <option value="">All Input Types</option>
+        <option value="seeds">Seeds</option>
+        <option value="fertilizer_basal">Fertilizer (Basal)</option>
+        <option value="fertilizer_top_dressing">Fertilizer (Top Dressing)</option>
+        <option value="chemical">Chemical</option>
+        <option value="mechanization">Mechanization</option>
+      </select>
+      <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+        <input type="checkbox" id="lowStockOnly" onchange="applyFilters()" />
+        Low stock only
+      </label>
+      <span id="itemCount" style="font-size:13px;color:#888"></span>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>SKU</th><th>Product Name</th><th>Type</th>
+          <th>Available</th><th>Reorder Level</th><th>Stock Level</th>
+          <th>Status</th><th>Expiry</th><th>Supplier</th>
+        </tr>
+      </thead>
+      <tbody id="inventoryTable">
+        <tr><td colspan="9" class="loading-spinner">Loading inventory from Input Acquisition API…</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- District Batching Panel -->
+  <div class="table-card">
+    <div class="table-card-header">
+      <h2>Regional Batching — Orders by District</h2>
+      <button class="btn btn-primary" onclick="loadDistrictOrders()">Load Pending Orders</button>
+    </div>
+    <div id="districtPanel" style="padding:16px;color:#666;font-size:14px">
+      Click "Load Pending Orders" to view and batch by district.
+    </div>
+  </div>
+
+  <!-- Release Order Generator -->
+  <div class="table-card">
+    <div class="table-card-header">
+      <h2>Generate Release Order</h2>
+    </div>
+    <div style="padding:16px">
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+        <div>
+          <label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px">Batch ID</label>
+          <input id="roBatchId" type="text" value="BATCH-AUTO-001" style="padding:8px 10px;border:1.5px solid #ddd;border-radius:7px;font-size:13px" />
+        </div>
+        <div>
+          <label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px">District</label>
+          <select id="roDistrict" style="padding:8px 10px;border:1.5px solid #ddd;border-radius:7px;font-size:13px">
+            <option>Accra</option><option>Kumasi</option><option>Tamale</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" onclick="generateRO()">Generate Release Order</button>
+      </div>
+      <div id="roPanel" style="margin-top:16px"></div>
+    </div>
+  </div>
+</main>
+
+<script type="module">
+import { requireAuth, renderNav, apiFetch } from '../shared/auth.js';
+
+let _allItems = [];
+
+const user = requireAuth('admin', 'warehouse_mgr');
+if (user) {
+  renderNav(user);
+  loadInventory();
+}
+
+async function loadInventory() {
+  const res = await apiFetch('/inventory/warehouses/warehouse-001/stock');
+  if (!res || !res.ok) return;
+  const d = await res.json();
+
+  _allItems = d.items;
+  document.getElementById('lastSyncLabel').textContent = `Synced ${new Date(d.last_sync).toLocaleTimeString()}`;
+
+  document.getElementById('summaryCards').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Total SKUs</div><div class="stat-value">${d.total_skus}</div></div>
+    <div class="stat-card alert"><div class="stat-label">Low / Out of Stock</div><div class="stat-value">${d.low_stock_count}</div></div>
+    <div class="stat-card"><div class="stat-label">Inventory Value</div><div class="stat-value">GH₵${(d.total_inventory_value/1000).toFixed(1)}k</div><div class="stat-sub">Thousands</div></div>
+    <div class="stat-card info"><div class="stat-label">Data Source</div><div class="stat-value" style="font-size:14px">${d.source}</div></div>
+  `;
+
+  renderTable(_allItems);
+}
+
+function renderTable(items) {
+  document.getElementById('itemCount').textContent = `Showing ${items.length} items`;
+  const TYPE_LABEL = { seeds:'seeds', fertilizer_basal:'fertilizer_basal', fertilizer_top_dressing:'fertilizer_top_dressing', chemical:'chemical', mechanization:'mechanization' };
+  const STATUS_BADGE = { ok:'badge-green', low_stock:'badge-yellow', out_of_stock:'badge-red' };
+  document.getElementById('inventoryTable').innerHTML = items.map(item => {
+    const reorder = item.reorder_level;
+    const avail = item.quantity_available;
+    const pct = Math.min(100, Math.round(avail / (reorder * 3) * 100));
+    const barColor = item.stock_status === 'ok' ? '#2d6a2d' : item.stock_status === 'low_stock' ? '#d97706' : '#dc2626';
+    return `<tr>
+      <td><strong>${item.sku}</strong></td>
+      <td>${item.product_name}</td>
+      <td><span class="item-type-badge type-${item.input_type}">${item.input_type.replace(/_/g,' ')}</span></td>
+      <td><strong>${avail}</strong> ${item.unit}</td>
+      <td>${reorder} ${item.unit}</td>
+      <td>
+        <div class="stock-bar">
+          <div class="stock-fill" style="width:${pct}%;background:${barColor}"></div>
+        </div>
+      </td>
+      <td><span class="badge ${STATUS_BADGE[item.stock_status]}">${item.stock_status.replace(/_/g,' ')}</span></td>
+      <td style="font-size:12px">${item.expiry_date || '—'}</td>
+      <td style="font-size:12px;color:#666">${item.supplier}</td>
+    </tr>`;
+  }).join('');
+}
+
+function applyFilters() {
+  const type = document.getElementById('inputTypeFilter').value;
+  const lowOnly = document.getElementById('lowStockOnly').checked;
+  let items = _allItems;
+  if (type) items = items.filter(i => i.input_type === type);
+  if (lowOnly) items = items.filter(i => i.stock_status !== 'ok');
+  renderTable(items);
+}
+
+async function triggerSync() {
+  const btn = event.target;
+  btn.disabled = true; btn.textContent = 'Syncing…';
+  const res = await apiFetch('/inventory/warehouses/warehouse-001/sync', { method: 'POST' });
+  if (res && res.ok) {
+    const d = await res.json();
+    document.getElementById('lastSyncLabel').textContent = `Synced ${new Date(d.synced_at).toLocaleTimeString()} (${d.items_synced} items)`;
+    await loadInventory();
+  }
+  btn.disabled = false; btn.textContent = 'Force Sync';
+}
+
+async function loadDistrictOrders() {
+  const res = await apiFetch('/batches/by-district');
+  if (!res || !res.ok) return;
+  const d = await res.json();
+
+  document.getElementById('districtPanel').innerHTML = `
+    <p style="margin-bottom:12px"><strong>${d.total_pending_orders}</strong> pending orders across <strong>${d.districts_covered}</strong> districts</p>
+    ${d.districts.map(dist => `
+      <div style="background:#f8faf8;border-left:3px solid #2d6a2d;padding:12px;border-radius:4px;margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <strong>${dist.district}</strong> <span style="font-size:12px;color:#888">${dist.region}</span>
+            — ${dist.order_count} orders — GH₵${dist.total_amount.toLocaleString()}
+          </div>
+          <button class="btn btn-primary" onclick="batchDistrict('${dist.district}')">Batch District</button>
+        </div>
+        <div style="margin-top:8px;font-size:12px;color:#666">
+          Farmers: ${dist.orders.map(o => o.farmer_name).join(' · ')}
+        </div>
+      </div>`).join('')}`;
+}
+
+async function batchDistrict(district) {
+  const panel = document.getElementById('districtPanel');
+  const res = await apiFetch('/batches/create-from-district', {
+    method: 'POST',
+    body: JSON.stringify({ district, warehouse_id: 'warehouse-001' }),
+  });
+  if (!res || !res.ok) return;
+  const d = await res.json();
+  panel.insertAdjacentHTML('beforeend', `
+    <div style="background:#d1fae5;border-radius:8px;padding:14px;margin-top:12px">
+      ✓ Batch <strong>${d.batch_id}</strong> created for ${district} — ${d.total_orders} orders in ${d.num_sub_batches} sub-batches
+      <button class="btn btn-ghost" style="margin-left:12px" onclick="generateROFromBatch('${d.batch_id}','${district}')">Generate Release Order</button>
+    </div>`);
+}
+
+async function generateROFromBatch(batchId, district) {
+  document.getElementById('roBatchId').value = batchId;
+  document.getElementById('roDistrict').value = district;
+  await generateRO();
+}
+
+async function generateRO() {
+  const batchId = document.getElementById('roBatchId').value;
+  const district = document.getElementById('roDistrict').value;
+  const panel = document.getElementById('roPanel');
+  panel.innerHTML = '<em>Generating Release Order…</em>';
+
+  const res = await apiFetch(`/batches/${batchId}/release-order`, {
+    method: 'POST',
+    body: JSON.stringify({ district, warehouse_id: 'warehouse-001' }),
+  });
+  if (!res || !res.ok) return;
+  const ro = await res.json();
+
+  panel.innerHTML = `
+    <div class="release-order-panel">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+        <div>
+          <div style="font-size:18px;font-weight:700;color:#1a3a1a">${ro.release_order_number}</div>
+          <div style="font-size:13px;color:#666">Batch: ${ro.batch_id} · District: ${ro.district}</div>
+          <div style="font-size:12px;color:#999">Issued: ${new Date(ro.issued_at).toLocaleString()}</div>
+        </div>
+        <span class="badge badge-green">ISSUED</span>
+      </div>
+      <table style="margin-bottom:16px">
+        <thead><tr><th>SKU</th><th>Product</th><th>Type</th><th>Qty</th><th>Unit Cost</th><th>Total</th></tr></thead>
+        <tbody>
+          ${ro.line_items.map(li => `
+            <tr>
+              <td>${li.sku}</td>
+              <td>${li.product_name}</td>
+              <td><span class="item-type-badge type-${li.input_type}">${li.input_type.replace(/_/g,' ')}</span></td>
+              <td><strong>${li.total_quantity}</strong> ${li.unit}</td>
+              <td>GH₵${li.unit_cost}</td>
+              <td>GH₵${li.total_value.toLocaleString()}</td>
+            </tr>`).join('')}
+        </tbody>
+        <tfoot>
+          <tr><td colspan="5" style="text-align:right;font-weight:700">Total Value</td><td style="font-weight:700">GH₵${ro.total_value.toLocaleString()}</td></tr>
+        </tfoot>
+      </table>
+      <div style="font-size:12px;color:#555">
+        <strong>Instructions:</strong>
+        <ol style="margin:8px 0 0 20px;line-height:1.8">${ro.instructions.map(i => `<li>${i}</li>`).join('')}</ol>
+      </div>
+      <div style="margin-top:12px;font-size:12px;color:#888">Valid until: ${new Date(ro.valid_until).toLocaleString()}</div>
+    </div>`;
+}
+
+window.applyFilters = applyFilters;
+window.triggerSync = triggerSync;
+window.loadDistrictOrders = loadDistrictOrders;
+window.batchDistrict = batchDistrict;
+window.generateRO = generateRO;
+window.generateROFromBatch = generateROFromBatch;
+</script>
+</body>
+</html>
