@@ -1,0 +1,27 @@
+# growforme configuration file
+#
+# Copy this file to config.local.yaml (or rename it) and adjust values as needed.
+# Command-line flags override values set here.
+
+# General application settings
+app:
+  name: growforme
+  version: "1.0.0"
+  log_level: info        # debug | info | warning | error
+
+# Plant tracking settings
+plants:
+  data_dir: ./data/plants   # directory where plant records are stored
+  reminder_days: 7          # how many days before next watering to send reminder
+
+# Notification settings
+notifications:
+  enabled: false
+  email: ""               # recipient address; required when enabled is true
+  smtp_host: smtp.example.com
+  smtp_port: 587
+
+# Output / reporting settings
+output:
+  format: table           # table | json | csv
+  date_format: "%Y-%m-%d"
