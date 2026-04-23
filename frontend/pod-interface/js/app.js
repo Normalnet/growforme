@@ -14,17 +14,9 @@ class ProofOfDeliveryApp {
     }
 
     getApiBaseUrl() {
-        // Detect API base URL
-        const protocol = window.location.protocol;
-        const host = window.location.hostname;
-        const port = window.location.port ? `:${window.location.port}` : '';
-        
-        // If running on localhost, use port 5000 for API
-        if (host === 'localhost' || host === '127.0.0.1') {
-            return `${protocol}//localhost:5000/api/v1`;
-        }
-        
-        return `${protocol}//${host}${port}/api/v1`;
+        // Use the Render API URL for free PoC Hosting
+        // Hardcoded for the PoC
+        return 'https://smarttech-simple-api.onrender.com/api/v1';
     }
 
     getDeliveryIdFromUrl() {

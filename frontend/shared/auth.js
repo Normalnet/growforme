@@ -2,7 +2,7 @@
  * Shared auth helpers for SmartTechBuddy dashboards.
  * Include this script BEFORE any dashboard-specific code.
  */
-const API = 'http://localhost:5000/api/v1';
+const API = 'https://smarttech-simple-api.onrender.com/api/v1';
 
 export function getToken() {
   return sessionStorage.getItem('auth_token');
