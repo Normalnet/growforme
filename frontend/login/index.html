@@ -183,7 +183,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     const dest = dashboardMap[data.user.role] || '../dashboard/admin.html';
     window.location.href = dest;
   } catch (err) {
-    showError('Cannot reach server. Is the backend running on port 5000?');
+    showError('Cannot reach server. Connecting to Render may take up to 50 seconds on the first try. Please wait a moment and try again.');
   } finally {
     btn.disabled = false;
     btn.textContent = 'Sign In';
