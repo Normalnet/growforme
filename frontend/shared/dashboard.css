@@ -122,3 +122,49 @@ body.role-warehouse   #navbar { background: #7c3a00; }
 body.role-field-agent #navbar { background: #0c3a5f; }
 body.role-supervisor  #navbar { background: #3b1a6a; }
 body.role-farmer      #navbar { background: #064e3b; }
+
+/* ── Mobile & Tablet Responsive Adjustments ────────────────── */
+@media (max-width: 768px) {
+  /* Navbar */
+  #navbar {
+    flex-wrap: wrap; height: auto;
+    padding: 12px 16px;
+    gap: 12px;
+  }
+  .nav-center { display: none; /* Hide middle logo subtext on mobile */ }
+  .nav-right { width: 100%; justify-content: space-between; }
+  
+  /* Layout */
+  .page-header { padding: 16px; }
+  main { padding: 16px; }
+  .page-header h1 { font-size: 20px; }
+  
+  /* Stats */
+  .stat-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .stat-card { padding: 16px; border-left-width: 3px; }
+  .stat-value { font-size: 24px; }
+  
+  /* Tables */
+  .table-card { border-radius: 8px; margin-bottom: 16px; }
+  table { display: block; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; }
+  th, td { padding: 10px 12px; font-size: 13px; }
+
+  /* Buttons */
+  .btn { padding: 10px 14px; width: 100%; display: block; text-align: center; margin-bottom: 8px; }
+  .btn:last-child { margin-bottom: 0; }
+  
+  /* Modals / Action strips if present */
+  .modal-content { width: 95%; margin: 10% auto; }
+}
+
+@media (max-width: 480px) {
+  .stat-grid { grid-template-columns: 1fr; }
+  .nav-user { flex-direction: column; align-items: flex-start; gap: 4px; }
+  .nav-logout { padding: 8px 12px; width: auto; font-size: 12px; }
+  .table-card-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .table-card-header .btn { width: auto; display: inline-block; margin-bottom: 0; }
+}
