@@ -149,10 +149,23 @@ body.role-farmer      #navbar { background: #064e3b; }
   .stat-value { font-size: 24px; }
   
   /* Tables */
-  .table-card { border-radius: 8px; margin-bottom: 16px; }
-  table { display: block; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; }
-  th, td { padding: 10px 12px; font-size: 13px; }
-
+  .table-card { 
+    border-radius: 8px; 
+    margin-bottom: 16px; 
+    overflow-x: auto; /* Allow entire card to scroll on mobile easily */
+    -webkit-overflow-scrolling: touch; 
+  }
+  table { 
+    display: table; /* Revert back to standard table layout to fix clustering */
+    width: 100%; 
+    min-width: 600px; /* Force minimum width to retain spaced-out columns */
+  }
+  th, td { 
+    padding: 14px 16px; 
+    font-size: 13px; 
+    white-space: nowrap; /* Keep text on one line */
+  }
+  
   /* Buttons */
   .btn { padding: 10px 14px; width: 100%; display: block; text-align: center; margin-bottom: 8px; }
   .btn:last-child { margin-bottom: 0; }
