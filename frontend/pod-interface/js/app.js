@@ -14,8 +14,10 @@ class ProofOfDeliveryApp {
     }
 
     getApiBaseUrl() {
-        // Use the Render API URL for free PoC Hosting
-        // Hardcoded for the PoC
+        // Use local API for development if on localhost, else use the deployed Render API
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            return 'http://localhost:5000/api/v1';
+        }
         return 'https://smarttech-simple-api.onrender.com/api/v1';
     }
 
@@ -110,9 +112,17 @@ class ProofOfDeliveryApp {
 
     async loadDeliveryDetails() {
         try {
+            const token = localStorage.getItem('auth_token');
+            const headers = { 'Content-Type': 'application/json' };
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
             const response = await fetch(
                 `${this.apiBaseUrl}/deliveries/${this.deliveryId}`,
-                { method: 'GET' }
+                { 
+                    method: 'GET',
+                    headers: headers
+                }
             );
 
             if (!response.ok) {
@@ -144,9 +154,18 @@ class ProofOfDeliveryApp {
 
     async loadOrderItems(orderId) {
         try {
+            const token = localStorage.getItem('auth_token');
+            const headers = { 'Content-Type': 'application/json' };
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+
             const response = await fetch(
                 `${this.apiBaseUrl}/orders/${orderId}`,
-                { method: 'GET' }
+                { 
+                    method: 'GET',
+                    headers: headers
+                }
             );
 
             if (!response.ok) {
@@ -158,6 +177,10 @@ class ProofOfDeliveryApp {
 
         } catch (error) {
             console.error('Error loading order items:', error);
+            const container = document.getElementById('itemsContainer');
+            if (container) {
+                container.innerHTML = '<p class="error-text">Failed to load order items. Check connection or backend status.</p>';
+            }
         }
     }
 
@@ -332,9 +355,15 @@ class ProofOfDeliveryApp {
         if (!this.farmerLocation) return;
 
         try {
+            const token = localStorage.getItem('auth_token');
+            const headers = { 'Content-Type': 'application/json' };
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+
             const response = await fetch(`${this.apiBaseUrl}/dispatch/geofence-check`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: headers,
                 body: JSON.stringify({
                     farm_latitude: this.farmerLocation.latitude,
                     farm_longitude: this.farmerLocation.longitude,
@@ -455,10 +484,17 @@ class ProofOfDeliveryApp {
 
             const deliveryId = document.getElementById('deliveryID').value;
             
+            const token = localStorage.getItem('auth_token');
+            const headers = {};
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+
             const response = await fetch(
                 `${this.apiBaseUrl}/proof-of-delivery/${deliveryId}`,
                 {
                     method: 'POST',
+                    headers: headers,
                     body: formData
                 }
             );

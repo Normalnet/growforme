@@ -135,7 +135,9 @@
 </div>
 
 <script>
-const API = 'https://smarttech-simple-api.onrender.com/api/v1';
+const API = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') 
+  ? 'http://localhost:5000/api/v1' 
+  : 'https://smarttech-simple-api.onrender.com/api/v1';
 
 function fill(email, pw) {
   document.getElementById('email').value = email;
@@ -173,9 +175,9 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
       return;
     }
 
-    // Persist token + user in sessionStorage
-    sessionStorage.setItem('auth_token', data.token);
-    sessionStorage.setItem('auth_user', JSON.stringify(data.user));
+    // Persist token + user in localStorage
+    localStorage.setItem('auth_token', data.token);
+    localStorage.setItem('auth_user', JSON.stringify(data.user));
 
     // Redirect to role dashboard
     const dashboardMap = {
@@ -196,9 +198,9 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
 });
 
 // Auto-redirect if already logged in
-const token = sessionStorage.getItem('auth_token');
+const token = localStorage.getItem('auth_token');
 if (token) {
-  const user = JSON.parse(sessionStorage.getItem('auth_user') || '{}');
+  const user = JSON.parse(localStorage.getItem('auth_user') || '{}');
   const dashboardMap = {
     admin: '../dashboard/admin.html', warehouse_mgr: '../dashboard/warehouse.html',
     field_agent: '../dashboard/field_agent.html', supervisor: '../dashboard/supervisor.html',

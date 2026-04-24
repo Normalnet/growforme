@@ -307,6 +307,16 @@ def list_users():
 
 
 # ============================================================================
+# PERSISTENT MOCK STATE FOR DEMO SESSIONS
+# ============================================================================
+PERSISTENT_DELIVERIES = [
+    {'delivery_id': 'DEL-001', 'farmer': 'Kofi Yeboah', 'district': 'Accra', 'status': 'in_transit', 'eta': '2h 30m', 'pod_submitted': False},
+    {'delivery_id': 'DEL-002', 'farmer': 'Abena Osei', 'district': 'Accra', 'status': 'scheduled', 'eta': '4h 00m', 'pod_submitted': False},
+    {'delivery_id': 'DEL-003', 'farmer': 'Kwame Adjei (Geofence Test)', 'district': 'Ga West', 'status': 'in_transit', 'eta': '3h 15m', 'pod_submitted': False},
+]
+PERSISTENT_FLAGGED = []
+
+# ============================================================================
 # CORE ENDPOINTS
 # ============================================================================
 
@@ -329,7 +339,18 @@ def health():
 @app.route('/api/v1/deliveries/<delivery_id>', methods=['GET'])
 @require_auth('admin', 'warehouse_mgr', 'field_agent', 'supervisor')
 def get_delivery(delivery_id):
-    return jsonify(mock_delivery), 200
+    delivery = dict(mock_delivery)
+    if delivery_id == "DEL-003":
+        delivery["id"] = "DEL-003"
+        delivery["delivery_number"] = "DEL-2026041603"
+        farmer3 = dict(MOCK_FARMER)
+        farmer3["id"] = "farmer-124"
+        farmer3["name"] = "Kwame Adjei (Geofence Test)"
+        farmer3["latitude"] = 5.764174
+        farmer3["longitude"] = -0.219029
+        farmer3["district"] = "Ga West"
+        delivery["farmer"] = farmer3
+    return jsonify(delivery), 200
 
 
 @app.route('/api/v1/orders/<order_id>', methods=['GET'])
@@ -348,8 +369,13 @@ def create_pod(delivery_id):
     data = request.get_json(force=True) if request.is_json else request.form.to_dict()
 
     # ── Geofence / Anomaly Detection ────────────────────────────────────
-    farm_lat = MOCK_FARMER['latitude']
-    farm_lon = MOCK_FARMER['longitude']
+    if delivery_id == "DEL-003":
+        farm_lat = 5.764174
+        farm_lon = -0.219029
+    else:
+        farm_lat = MOCK_FARMER['latitude']
+        farm_lon = MOCK_FARMER['longitude']
+        
     risk_level = 'LOW'
     flags = []
     gps_deviation = None
@@ -393,6 +419,25 @@ def create_pod(delivery_id):
     print(f"  SMS Sent   : {data.get('farmer_phone')}\n")
 
     pod_id = f"POD-{uuid.uuid4().hex[:8].upper()}"
+
+    # ---- Update Persistent Mock Data ----
+    global PERSISTENT_DELIVERIES, PERSISTENT_FLAGGED
+    for d in PERSISTENT_DELIVERIES:
+        if d['delivery_id'] == delivery_id:
+            d['pod_submitted'] = True
+            d['status'] = 'delivered'
+            break
+            
+    if risk_level in ['HIGH', 'MEDIUM']:
+        PERSISTENT_FLAGGED.append({
+            'delivery_id': delivery_id,
+            'farmer': data.get('farmer_name', 'Unknown'),
+            'risk_level': risk_level,
+            'risk_score': 85 if risk_level == 'HIGH' else 50,
+            'flags': [f['code'] for f in flags],
+            'submitted_at': datetime.now(timezone.utc).isoformat(),
+            'reviewed': False
+        })
 
     return jsonify({
         "pod_id": pod_id,
@@ -1514,18 +1559,18 @@ def warehouse_stats():
 def field_agent_deliveries():
     """Field agent dashboard — agent's assigned deliveries."""
     user = request.current_user
+    global PERSISTENT_DELIVERIES
+    
     # In production: filter by agent_id == user['sub']
+    completed = sum(1 for d in PERSISTENT_DELIVERIES if d['status'] == 'delivered')
+    pending = len(PERSISTENT_DELIVERIES) - completed
+    
     return jsonify({
         'agent_id': user['sub'],
         'agent_name': user['name'],
-        'deliveries': [
-            {'delivery_id': 'DEL-001', 'farmer': 'Kofi Yeboah', 'district': 'Accra',
-             'status': 'in_transit', 'eta': '2h 30m', 'pod_submitted': False},
-            {'delivery_id': 'DEL-002', 'farmer': 'Abena Osei', 'district': 'Accra',
-             'status': 'scheduled', 'eta': '4h 00m', 'pod_submitted': False},
-        ],
-        'completed_today': 3,
-        'pending': 2,
+        'deliveries': PERSISTENT_DELIVERIES,
+        'completed_today': completed,
+        'pending': pending,
         'timestamp': datetime.now(timezone.utc).isoformat(),
     }), 200
 
@@ -1534,17 +1579,18 @@ def field_agent_deliveries():
 @require_auth('supervisor', 'admin')
 def supervisor_flagged():
     """Supervisor dashboard — high-risk PoDs awaiting review."""
+    global PERSISTENT_FLAGGED
+    default_flags = [
+        {'delivery_id': 'DEL-009', 'farmer': 'Kwaku Mensah', 'risk_level': 'HIGH',
+         'risk_score': 85, 'flags': ['LOCATION_MISMATCH', 'LATE_DELIVERY'],
+         'submitted_at': '2026-04-16T09:22:00Z', 'reviewed': False}
+    ]
+    
+    all_flags = default_flags + [f for f in PERSISTENT_FLAGGED if not f.get('reviewed')]
     return jsonify({
-        'flagged_deliveries': [
-            {'delivery_id': 'DEL-009', 'farmer': 'Kwaku Mensah', 'risk_level': 'HIGH',
-             'risk_score': 85, 'flags': ['LOCATION_MISMATCH', 'LATE_DELIVERY'],
-             'submitted_at': '2026-04-16T09:22:00Z', 'reviewed': False},
-            {'delivery_id': 'DEL-017', 'farmer': 'Afia Boateng', 'risk_level': 'HIGH',
-             'risk_score': 78, 'flags': ['SIGNATURE_MISMATCH'],
-             'submitted_at': '2026-04-16T11:05:00Z', 'reviewed': False},
-        ],
-        'total_flagged': 2,
-        'reviewed_today': 5,
+        'flagged_deliveries': all_flags,
+        'total_flagged': len(all_flags),
+        'reviewed_today': sum(1 for f in PERSISTENT_FLAGGED if f.get('reviewed')),
         'timestamp': datetime.now(timezone.utc).isoformat(),
     }), 200
 

@@ -2,20 +2,22 @@
  * Shared auth helpers for SmartTechBuddy dashboards.
  * Include this script BEFORE any dashboard-specific code.
  */
-const API = 'https://smarttech-simple-api.onrender.com/api/v1';
+const API = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') 
+  ? 'http://localhost:5000/api/v1' 
+  : 'https://smarttech-simple-api.onrender.com/api/v1';
 
 export function getToken() {
-  return sessionStorage.getItem('auth_token');
+  return localStorage.getItem('auth_token');
 }
 
 export function getUser() {
-  try { return JSON.parse(sessionStorage.getItem('auth_user') || 'null'); }
+  try { return JSON.parse(localStorage.getItem('auth_user') || 'null'); }
   catch { return null; }
 }
 
 export function logout() {
-  sessionStorage.removeItem('auth_token');
-  sessionStorage.removeItem('auth_user');
+  localStorage.removeItem('auth_token');
+  localStorage.removeItem('auth_user');
   window.location.href = '../login/index.html';
 }
 
@@ -66,12 +68,25 @@ export function renderNav(user) {
   nav.innerHTML = `
     <div class="nav-brand">🌱 SmartTechBuddy</div>
     <div class="nav-center">${document.title}</div>
-    <div class="nav-right">
+    <button class="nav-toggle" id="navToggle" aria-label="Toggle Navigation">☰</button>
+    <div class="nav-right" id="navRight">
       <span class="nav-user">
         <span class="nav-role-badge">${ROLE_LABELS[user.role] || user.role}</span>
         ${user.name}
       </span>
       <button class="nav-logout" onclick="window.authLogout()">Sign Out</button>
     </div>`;
+    
+  setTimeout(() => {
+    const toggleBtn = document.getElementById('navToggle');
+    const navRight = document.getElementById('navRight');
+    if (toggleBtn && navRight) {
+      toggleBtn.addEventListener('click', () => {
+        navRight.classList.toggle('active');
+        toggleBtn.innerHTML = navRight.classList.contains('active') ? '✕' : '☰';
+      });
+    }
+  }, 0);
+  
   window.authLogout = logout;
 }

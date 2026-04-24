@@ -2,13 +2,79 @@
 
 ## Table of Contents
 
-1. [Development Deployment](#development-deployment)
-2. [Production Deployment](#production-deployment)
-3. [Database Setup](#database-setup)
+1. [Free Demonstration Deployment (Recommended for Quick Previews)](#free-demonstration-deployment)
+2. [Development Deployment](#development-deployment)
+3. [Production Deployment (VPS/Ubuntu)](#production-deployment)
 4. [Docker Deployment](#docker-deployment)
-5. [Configuration](#configuration)
-6. [Monitoring & Logging](#monitoring--logging)
-7. [Troubleshooting](#troubleshooting)
+5. [Monitoring & Logging](#monitoring--logging)
+
+---
+
+## Free Demonstration Deployment
+
+Since you have already pushed your code to GitHub, the easiest way to host this system for free is to split the architecture across modern serverless/PaaS platforms. 
+
+**Recommended Free Stack:**
+- **Frontend**: Vercel (or Netlify/GitHub Pages)
+- **Backend API**: Render.com (Free Web Service)
+- **Database**: Neon.tech (Free Serverless PostgreSQL)
+- **Redis Cache**: Upstash.com (Free Serverless Redis)
+
+### Step 1: Database Setup (Neon.tech)
+1. Go to [Neon.tech](https://neon.tech) and create a free account.
+2. Create a new Postgres project.
+3. Once created, copy the connection string (it looks like `postgres://user:password@ep-something.pooler.supabase.com/neondb`).
+4. Keep this URL handy for the Backend deployment.
+
+### Step 2: Redis Setup (Upstash)
+1. Go to [Upstash.com](https://upstash.com) and create a free account.
+2. Create a new Redis Database.
+3. Once created, scroll down to the **Connect** section and copy the `Redis URL` (looks like `rediss://default:password@endpoint.upstash.io:6379`).
+
+### Step 3: Backend Deployment (Render.com)
+1. Go to [Render.com](https://render.com) and sign in with GitHub.
+2. Click **New +** and select **Web Service**.
+3. Connect your GitHub repository.
+4. Configure the Web Service:
+   - **Name**: `smarttech-backend`
+   - **Root Directory**: `backend` (Important!)
+   - **Environment**: `Python`
+   - **Build Command**: `pip install -r requirements.txt`
+   - **Start Command**: `gunicorn -w 2 -b 0.0.0.0:$PORT "app:create_app()"`
+   - **Instance Type**: Free Plan
+5. Expand **Advanced** / **Environment Variables** and add:
+   - `DATABASE_URL`: *(Paste the Neon Postgres URL here)*
+   - `REDIS_URL`: *(Paste the Upstash URL here)*
+   - `SECRET_KEY`: *(Generate a random string)*
+   - `CORS_ORIGINS`: `*` *(We will restrict this later to your Vercel URL)*
+6. Click **Create Web Service**. Render will now build and deploy your API.
+7. Copy the deployed API URL (e.g., `https://smarttech-backend.onrender.com`).
+
+*(Note: The Render free tier sleeps after 15 minutes of inactivity. First requests after sleeping may take ~50 seconds to spin up).*
+
+### Step 4: Link Frontend to Backend
+1. In your local code, go to `frontend/pod-interface/js/app.js` and any other frontend JS files (like `frontend/shared/auth.js`).
+2. Find the API base URL (usually `http://localhost:5000/api/v1`).
+3. Change it to your new Render Backend URL (e.g., `https://smarttech-backend.onrender.com/api/v1`).
+4. Commit and push this change to GitHub.
+
+```javascript
+// Example in frontend/pod-interface/js/app.js
+const API_BASE_URL = 'https://smarttech-backend.onrender.com/api/v1';
+```
+
+### Step 5: Frontend Deployment (Vercel)
+1. Go to [Vercel.com](https://vercel.com) and log in with GitHub.
+2. Click **Add New** -> **Project**.
+3. Import your GitHub repository.
+4. Configure Project:
+   - **Framework Preset**: Other / Vanilla
+   - **Root Directory**: `frontend` (Click edit and select the `frontend` folder).
+5. Click **Deploy**. Vercel will instantly host your HTML/CSS/JS.
+
+### Final Verification
+1. Visit your Vercel URL (e.g., `https://inputdistribution.vercel.app`).
+2. Ensure you enable CORS in your backend codebase so Vercel can communicate with Render. Update `backend/app/__init__.py` to allow origins or configure it via the `.env` variables if supported.
 
 ---
 
